@@ -11,6 +11,8 @@ import Control.Monad.Writer  (Writer, execWriter, tell)
 import Data.Array            (Array, (!), bounds)
 import Data.Bool             (bool)
 import Data.STRef            (STRef)
+import Data.Set              (Set)
+import qualified Data.Set as S
 import Data.Text             (Text, singleton)
 import Prelude        hiding (Left, Right)
 import Safe                  (headMay)
@@ -35,6 +37,16 @@ permitteds maze (x, y) =
            , if x > 0            && not (rightWalls maze ! (x-1, y)) then  [Left] else []
            , if x < getMaxX maze && not (rightWalls maze ! (x,   y)) then [Right] else []
            ]
+
+permitteds' :: Maze
+            -> (Int, Int)
+            -> Set (Int, Int)
+permitteds' maze (x, y) =
+    mconcat [ if y > 0            && not (belowWalls maze ! (x, y-1)) then S.singleton (x, y-1) else mempty
+            , if y < getMaxY maze && not (belowWalls maze ! (x,   y)) then S.singleton (x, y+1) else mempty
+            , if x > 0            && not (rightWalls maze ! (x-1, y)) then S.singleton (x-1, y) else mempty
+            , if x < getMaxX maze && not (rightWalls maze ! (x,   y)) then S.singleton (x+1, y) else mempty
+            ]
 
 {-
 permitted :: Maze

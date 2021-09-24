@@ -11,7 +11,7 @@ library maze-common
   exposed-modules:     Agent, Maze, Direction, Rand
   ghc-options:         -Wall -O3
   default-language:    Haskell2010
-  build-depends:       array, base, random, mtl, safe, text
+  build-depends:       array, base, containers, random, mtl, safe, text
   hs-source-dirs:      maze-common
 
 executable maze-gen
@@ -24,12 +24,12 @@ executable maze-gen
 executable escape
   main-is:             Escape.hs
   ghc-options:         -Wall -O3
-  build-depends:       base, maze-common, random, text
+  build-depends:       base, containers, maze-common, random, text
   hs-source-dirs:      escape
   default-language:    Haskell2010
 
 executable maze-server
-  main-is:             MazeServer.hs
+  main-is:             Main.hs
   ghc-options:         -Wall -O3
   other-modules:       Controller
   build-depends:       base, lens, maze-common, swagger2, servant-swagger, servant-swagger-ui, servant, servant-server, text, wai, warp
