@@ -5,6 +5,8 @@ import Direction
 import Maze
 
 import           Control.Monad.ST
+import           Data.List                 (minimumBy)
+import           Data.Ord                  (comparing)
 import           Data.STRef                (newSTRef)
 import           Data.Set                  (Set, (\\))
 import qualified Data.Set as S
@@ -43,59 +45,76 @@ main = do
 
     let (agent, exit) = runST $ do
             gen   <- newSTRef stdgen
-            agent <- Agent <$> randomBoardPosition maze gen
-            exit  <- randomBoardPosition maze gen
-            pure (agent, exit)
+            age <- randomBoardPosition maze gen
+            exi  <- randomBoardPosition maze gen
+            pure (age, exi)
 
-    printMaze maze exit agent
+    printMaze maze exit (Agent agent)
 
-    step (Solver mempty mempty mempty) maze exit agent
+    step maze exit (Solver (S.singleton agent) [agent])
 
 printMaze :: Maze -> (Int, Int) -> Agent -> IO ()
 printMaze maze (ex, ey) (Agent (ax, ay)) =
     T.putStrLn $ pretty [(ax,ay,'a'), (ex,ey,'e')] maze
 
-
-
-{- 
-    Solver:
--}
-
 data Solver = 
-    Solver { fringe  :: !(Set (Int, Int))
-           , visited :: !(Set (Int, Int))
+    Solver { visited :: !(Set (Int, Int))
            , path    :: ![(Int, Int)]
            } deriving Show
 
-step solver maze exit (Agent (x, y))
+data Decision = Done
+              | Backtrack
+              | MoveTo !(Int, Int)
 
-    | exit == (x, y) = print "Done"
+step :: Maze -> (Int, Int) -> Solver -> IO ()
+step maze exit@(ex, ey) = go
 
-    | otherwise = do
+    where
+    go solver =
 
-        print solver
+        case decision of
 
-        let allowedMoves = permitteds' maze (x, y) \\ visited solver
-            fringe'      = S.delete (x, y) (fringe solver) <> allowedMoves
-            visited'     = S.insert (x, y) (visited solver)
+            Done ->
+                print "Done"
 
-        case S.toList allowedMoves of
+            Backtrack -> do
+                print "Backtrack"
+                let solver' = solver { path = tail (path solver) }
+                go solver'
 
-            [] ->
+            MoveTo c -> do
+                print $ "Move to " <> show c
+                let solver' = solver { visited = S.insert c (visited solver)
+                                    , path    = c : path solver }
+                go solver'
 
-                let (p:ps) = path solver
+        where
+        decision
 
-                    solver' = Solver { fringe  = fringe'
-                                     , visited = visited'
-                                     , path    = ps
-                                     }
+            | null (path solver) = error "No solution"
 
-                in step solver' maze exit (Agent p)
+            -- Are we done
+            | head (path solver) == exit = Done
 
-            (a:_) ->
+            -- pick the best unvisited adjacent cell (or backtrack)
+            | otherwise =
 
-                let solver' = Solver { fringe  = fringe'
-                                     , visited = visited'
-                                     , path    = a : path solver
-                                     }
-                in step solver' maze exit (Agent a)
+                case best (unvisited adjacentCells) of
+
+                    Nothing -> Backtrack
+
+                    Just c  -> MoveTo c
+
+            where
+            best :: Set (Int, Int) -> Maybe (Int, Int)
+            best cells | S.null cells = Nothing
+                       | otherwise    = Just . minimumBy (comparing distanceFromExit) $ S.toList cells
+
+            unvisited :: Set (Int, Int) -> Set (Int, Int)
+            unvisited cells = cells \\ visited solver
+
+            adjacentCells :: Set (Int, Int)
+            adjacentCells = permitteds' maze . head $ path solver
+
+            distanceFromExit :: (Int, Int) -> Int
+            distanceFromExit (x, y) = abs (ex - x) + abs (ey - y)
